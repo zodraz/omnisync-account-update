@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "func_sf_d365_omnisync_accounts_update": {
+      "commandName": "Project",
+      "commandLineArgs": "--port 7064",
+      "launchBrowser": false
+    }
+  }
+}
