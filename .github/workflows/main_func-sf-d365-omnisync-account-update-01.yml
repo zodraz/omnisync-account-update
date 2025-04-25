@@ -1,53 +1,62 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/azure/functions-action
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
+# GitHub action that builds and deploys an Azure Function App
 name: Build and deploy dotnet core project to Azure Function App - func-sf-d365-omnisync-account-update-01
 
+# Controls when the workflow will run
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+    # Triggers the workflow on push or pull request events but only for the "main" branch
+    push:
+        branches: [ "main" ]
+
+    # Allows you to run this workflow manually from the Actions tab
+    workflow_dispatch:
 
 env:
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: '.' # set this to the path to your web app project, defaults to the repository root
-  DOTNET_VERSION: '8.0.x' # set this to the dotnet version to use
+    # Azure functions configuration
+    AZURE_FUNCTIONAPP_NAME : 'func-sf-d365-omnisync-account-update-01'
+    AZURE_FUNCTIONAPP_PACKAGE_PATH: '.' # set this to the path to your web app project, defaults to the repository root
+    DOTNET_VERSION: '8.0.x' # set this to the dotnet version to use
 
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
+  # This job builds and deploy an azure function to Azure
   build-and-deploy:
+    # The type of runner that the job will run on
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
 
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      - name: 'Checkout GitHub Action'
-        uses: actions/checkout@v4
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v4
 
+      # Login to Azure using secrets credentials
+      - name: 'Login via Azure CLI'
+        uses: azure/login@v2
+        with:
+          creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}'
+
+
+      # Setup dotnet command
       - name: Setup DotNet ${{ env.DOTNET_VERSION }} Environment
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: 'Resolve Project Dependencies Using Dotnet'
-        shell: bash
+      # Build Azure Function
+      - name: 'Run dotnet'
+        shell: pwsh
         run: |
           pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
           dotnet build --configuration Release --output ./output
           popd
-      
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_D089F82CEA4E4AF29CFEC666637AF820 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_FC66E5863F154D529113B5578C6347AD }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_6A6A5C1FEEA248EC996185916748C14C }}
-
+      # Deploy build to Azure function app environment
       - name: 'Run Azure Functions Action'
-        uses: Azure/functions-action@v1
-        id: fa
+        uses: Azure/functions-action@v1.5.2
         with:
-          app-name: 'func-sf-d365-omnisync-account-update-01'
-          slot-name: 'Production'
+          app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
           package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output'
-          
+  
+       # Azure logout
+      - name: logout
+        run: |
+              az logout
+        if: always()
